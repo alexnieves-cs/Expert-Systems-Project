@@ -7,6 +7,12 @@ A rule-based expert system that asks an applicant a set of questions, then repor
 
 It is a single static page (`index.html`) written in plain HTML, CSS, and JavaScript. It has no frameworks, no build step, and no dependencies.
 
+## Live demo
+
+- **App:** https://alexnieves-cs.github.io/Expert-Systems-Project/
+- **Tests:** https://alexnieves-cs.github.io/Expert-Systems-Project/tests.html
+- **Source:** https://github.com/alexnieves-cs/Expert-Systems-Project
+
 ## Running it
 
 **GitHub Pages:** push the repo, then go to *Settings → Pages → Deploy from a branch → `main` / root*. The app is served at `https://<user>.github.io/<repo>/`, and the tests at `.../tests.html`.
