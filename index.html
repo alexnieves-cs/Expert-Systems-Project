@@ -1,0 +1,691 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<link rel="icon" href="data:,">
+<title>Job Qualification Expert System</title>
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #f6f6f3;
+    --surface: #ffffff;
+    --text: #1b1c1e;
+    --muted: #5d6167;
+    --border: #d9d9d3;
+    --input-bg: #ffffff;
+    --accent: #2c56c9;
+    --accent-text: #ffffff;
+    --focus: #2c56c9;
+    --ok: #1c6e45;
+    --ok-bg: #e7f4ec;
+    --bad: #b0271d;
+    --bad-bg: #fcebe9;
+    --note: #7a4f00;
+    --note-bg: #fff3dc;
+    --radius: 10px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #111214;
+      --surface: #1b1c20;
+      --text: #ebebec;
+      --muted: #a2a6ad;
+      --border: #34363c;
+      --input-bg: #141518;
+      --accent: #86a8ff;
+      --accent-text: #0d1330;
+      --focus: #86a8ff;
+      --ok: #74d39d;
+      --ok-bg: #15271d;
+      --bad: #ff8f86;
+      --bad-bg: #2d1716;
+      --note: #f2c46e;
+      --note-bg: #2a2213;
+    }
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  main { max-width: 760px; margin: 0 auto; padding: 32px 16px 64px; }
+  header h1 { font-size: 1.6rem; line-height: 1.2; margin: 0 0 6px; }
+  header p { margin: 0 0 24px; color: var(--muted); }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px;
+    margin-bottom: 16px;
+  }
+  .card > h2 { font-size: 1.05rem; margin: 0 0 4px; }
+  .card > .section-hint { margin: 0 0 16px; color: var(--muted); font-size: .9rem; }
+
+  .grid { display: grid; gap: 16px; }
+  @media (min-width: 620px) { .grid.two { grid-template-columns: 1fr 1fr; } }
+
+  .field { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+  .field label, .field legend { font-weight: 600; font-size: .95rem; }
+  .hint { color: var(--muted); font-size: .85rem; margin: -2px 0 0; }
+  input[type="text"] {
+    font: inherit;
+    font-size: 16px; /* prevents iOS zoom on focus */
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--input-bg);
+    color: var(--text);
+  }
+  input[type="text"]:disabled { opacity: .5; cursor: not-allowed; }
+  input:focus-visible, button:focus-visible, summary:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+  .field.invalid input[type="text"] { border-color: var(--bad); }
+  .error { color: var(--bad); font-size: .85rem; font-weight: 500; min-height: 0; }
+  .error:empty { display: none; }
+  .error::before { content: "⚠ "; }
+
+  fieldset.field { border: 0; padding: 0; margin: 0; }
+  fieldset.field legend { padding: 0; margin-bottom: 6px; }
+  .yesno { display: inline-flex; gap: 8px; }
+  .yesno label { position: relative; font-weight: 500; }
+  .yesno input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+  .yesno span {
+    display: inline-block;
+    min-width: 72px;
+    text-align: center;
+    padding: 8px 16px;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: var(--input-bg);
+    cursor: pointer;
+    user-select: none;
+  }
+  .yesno input:checked + span { background: var(--accent); border-color: var(--accent); color: var(--accent-text); }
+  .yesno input:focus-visible + span { outline: 2px solid var(--focus); outline-offset: 2px; }
+  .field.invalid .yesno span { border-color: var(--bad); }
+
+  .actions { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; margin-top: 8px; }
+  button {
+    font: inherit;
+    font-weight: 600;
+    padding: 11px 22px;
+    border-radius: 8px;
+    border: 1px solid var(--accent);
+    background: var(--accent);
+    color: var(--accent-text);
+    cursor: pointer;
+  }
+  button.secondary { background: transparent; color: var(--text); border-color: var(--border); }
+  .form-status { color: var(--bad); font-weight: 500; }
+
+  #results { scroll-margin-top: 16px; }
+  #results[hidden] { display: none; }
+  .summary { font-size: 1.1rem; font-weight: 600; margin: 8px 0 16px; }
+  .results-group h2 { font-size: 1.05rem; margin: 24px 0 10px; }
+  .result {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left-width: 5px;
+    border-radius: var(--radius);
+    padding: 16px 18px;
+    margin-bottom: 12px;
+  }
+  .result.ok { border-left-color: var(--ok); }
+  .result.bad { border-left-color: var(--bad); }
+  .result h3 { margin: 0; font-size: 1.05rem; display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap; }
+  .result .status { font-size: .8rem; font-weight: 600; padding: 2px 8px; border-radius: 999px; }
+  .result.ok .status { background: var(--ok-bg); color: var(--ok); }
+  .result.bad .status { background: var(--bad-bg); color: var(--bad); }
+  .result p { margin: 8px 0 0; }
+  .fails { margin: 10px 0 0; padding-left: 20px; }
+  .fails li { margin: 4px 0; }
+  .note { background: var(--note-bg); color: var(--note); border-radius: 8px; padding: 8px 12px; margin-top: 10px; font-size: .92rem; }
+  .none { color: var(--muted); font-style: italic; }
+
+  details { margin-top: 12px; font-size: .9rem; }
+  summary { cursor: pointer; color: var(--muted); }
+  .trace { list-style: none; padding: 0; margin: 8px 0 0; }
+  .trace li { display: grid; grid-template-columns: 1.4em 1fr; gap: 4px; padding: 4px 0; border-top: 1px solid var(--border); }
+  .trace .pass { color: var(--ok); }
+  .trace .fail { color: var(--bad); }
+  .trace .soft { color: var(--note); }
+  .tag { font-size: .72rem; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin-left: 6px; }
+
+  footer { margin-top: 32px; color: var(--muted); font-size: .85rem; }
+  footer a { color: var(--accent); }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Job Qualification Expert System</h1>
+    <p>Answer every question below. The system checks your answers against each position's rules and explains which positions you qualify for and why.</p>
+  </header>
+
+  <form id="form" novalidate>
+    <section class="card">
+      <h2>Education</h2>
+      <p class="section-hint">Type your answers exactly as shown in the hint.</p>
+      <div class="grid two">
+        <div class="field" data-field="degreeLevel">
+          <label for="degreeLevel">Highest degree level</label>
+          <p class="hint" id="degreeLevel-hint">Type one of: None, Bachelors, Masters, PhD</p>
+          <input type="text" id="degreeLevel" name="degreeLevel" autocomplete="off" autocapitalize="words" spellcheck="false" aria-describedby="degreeLevel-hint degreeLevel-error">
+          <p class="error" id="degreeLevel-error" aria-live="polite"></p>
+        </div>
+        <div class="field" data-field="degreeField">
+          <label for="degreeField">Degree field</label>
+          <p class="hint" id="degreeField-hint">Type one of: Computer Science, Other</p>
+          <input type="text" id="degreeField" name="degreeField" autocomplete="off" autocapitalize="words" spellcheck="false" aria-describedby="degreeField-hint degreeField-error">
+          <p class="error" id="degreeField-error" aria-live="polite"></p>
+        </div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Coursework</h2>
+      <p class="section-hint">Courses you have completed.</p>
+      <div class="grid">
+        <fieldset class="field" data-field="pythonCourse" aria-describedby="pythonCourse-error">
+          <legend>Have you completed a Python course?</legend>
+          <div class="yesno">
+            <label><input type="radio" name="pythonCourse" value="yes"><span>Yes</span></label>
+            <label><input type="radio" name="pythonCourse" value="no"><span>No</span></label>
+          </div>
+          <p class="error" id="pythonCourse-error" aria-live="polite"></p>
+        </fieldset>
+        <fieldset class="field" data-field="seCourse" aria-describedby="seCourse-error">
+          <legend>Have you completed a Software Engineering course?</legend>
+          <div class="yesno">
+            <label><input type="radio" name="seCourse" value="yes"><span>Yes</span></label>
+            <label><input type="radio" name="seCourse" value="no"><span>No</span></label>
+          </div>
+          <p class="error" id="seCourse-error" aria-live="polite"></p>
+        </fieldset>
+        <fieldset class="field" data-field="agileCourse" aria-describedby="agileCourse-error">
+          <legend>Have you completed an Agile course?</legend>
+          <div class="yesno">
+            <label><input type="radio" name="agileCourse" value="yes"><span>Yes</span></label>
+            <label><input type="radio" name="agileCourse" value="no"><span>No</span></label>
+          </div>
+          <p class="error" id="agileCourse-error" aria-live="polite"></p>
+        </fieldset>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Experience</h2>
+      <p class="section-hint">Whole years only, from 0 to 60. Enter 0 if you have none.</p>
+      <div class="grid two">
+        <div class="field" data-field="pythonYears">
+          <label for="pythonYears">Years of Python development</label>
+          <input type="text" id="pythonYears" name="pythonYears" inputmode="numeric" autocomplete="off" aria-describedby="pythonYears-error">
+          <p class="error" id="pythonYears-error" aria-live="polite"></p>
+        </div>
+        <div class="field" data-field="dataDevYears">
+          <label for="dataDevYears">Years of data development</label>
+          <input type="text" id="dataDevYears" name="dataDevYears" inputmode="numeric" autocomplete="off" aria-describedby="dataDevYears-error">
+          <p class="error" id="dataDevYears-error" aria-live="polite"></p>
+        </div>
+        <div class="field" data-field="dataArchYears">
+          <label for="dataArchYears">Years of data architecture</label>
+          <input type="text" id="dataArchYears" name="dataArchYears" inputmode="numeric" autocomplete="off" aria-describedby="dataArchYears-error">
+          <p class="error" id="dataArchYears-error" aria-live="polite"></p>
+        </div>
+        <div class="field" data-field="expertSystemsYears">
+          <label for="expertSystemsYears">Years developing expert systems</label>
+          <input type="text" id="expertSystemsYears" name="expertSystemsYears" inputmode="numeric" autocomplete="off" aria-describedby="expertSystemsYears-error">
+          <p class="error" id="expertSystemsYears-error" aria-live="polite"></p>
+        </div>
+        <div class="field" data-field="agileYears">
+          <label for="agileYears">Years working on Agile projects</label>
+          <input type="text" id="agileYears" name="agileYears" inputmode="numeric" autocomplete="off" aria-describedby="agileYears-error">
+          <p class="error" id="agileYears-error" aria-live="polite"></p>
+        </div>
+        <div class="field" data-field="pmYears">
+          <label for="pmYears">Years managing software projects</label>
+          <input type="text" id="pmYears" name="pmYears" inputmode="numeric" autocomplete="off" aria-describedby="pmYears-error">
+          <p class="error" id="pmYears-error" aria-live="polite"></p>
+        </div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Tools &amp; certifications</h2>
+      <div class="grid">
+        <fieldset class="field" data-field="usedGit" aria-describedby="usedGit-error">
+          <legend>Have you used Git?</legend>
+          <div class="yesno">
+            <label><input type="radio" name="usedGit" value="yes"><span>Yes</span></label>
+            <label><input type="radio" name="usedGit" value="no"><span>No</span></label>
+          </div>
+          <p class="error" id="usedGit-error" aria-live="polite"></p>
+        </fieldset>
+        <fieldset class="field" data-field="pmiCert" aria-describedby="pmiCert-error">
+          <legend>Do you hold the PMI Lean Project Management Certification?</legend>
+          <div class="yesno">
+            <label><input type="radio" name="pmiCert" value="yes"><span>Yes</span></label>
+            <label><input type="radio" name="pmiCert" value="no"><span>No</span></label>
+          </div>
+          <p class="error" id="pmiCert-error" aria-live="polite"></p>
+        </fieldset>
+      </div>
+    </section>
+
+    <div class="actions">
+      <button type="submit">See my results</button>
+      <button type="reset" class="secondary">Start over</button>
+      <span class="form-status" id="form-status" role="status"></span>
+    </div>
+  </form>
+
+  <section id="results" hidden aria-labelledby="results-title" tabindex="-1">
+    <h2 id="results-title" class="summary"></h2>
+    <div class="results-group">
+      <h2>Positions you qualify for</h2>
+      <div id="qualified-list"></div>
+    </div>
+    <div class="results-group">
+      <h2>Positions you don't qualify for</h2>
+      <div id="unqualified-list"></div>
+    </div>
+  </section>
+
+  <footer>Rule-based expert system · <a href="tests.html">Run the test suite</a></footer>
+</main>
+
+<!-- ===================================================================
+     KNOWLEDGE BASE + INFERENCE ENGINE
+     Pure logic with no DOM access, so tests.html can reuse it unchanged.
+     =================================================================== -->
+<script id="engine">
+(function (global) {
+  'use strict';
+
+  const DEGREE_RANK = { none: 0, bachelors: 1, masters: 2, phd: 3 };
+  const DEGREE_NAME = { none: 'None', bachelors: 'Bachelors', masters: 'Masters', phd: 'PhD' };
+  const FIELD_NAME = { cs: 'Computer Science', other: 'Other' };
+
+  const POSITIONS = [
+    { id: 'elp', title: 'Entry-Level Python Engineer' },
+    { id: 'pe',  title: 'Python Engineer' },
+    { id: 'pm',  title: 'Project Manager' },
+    { id: 'ske', title: 'Senior Knowledge Engineer' },
+  ];
+
+  // Each rule is one condition for one position.
+  //   type: 'needed' | 'qualification' -> must pass, otherwise the applicant is disqualified
+  //         'desired'                  -> never disqualifies; reported as a note
+  //   test: a declarative condition the engine knows how to evaluate
+  //         { kind: 'yes',    fact }                 fact must be true
+  //         { kind: 'min',    fact, min }            fact must be >= min
+  //         { kind: 'degree', minLevel, field }      degree rank >= minLevel AND field matches
+  const RULES = [
+    // Entry-Level Python Engineer
+    { id: 'elp-python-course', position: 'elp', type: 'needed',        label: 'Python coursework',            test: { kind: 'yes', fact: 'pythonCourse' } },
+    { id: 'elp-se-course',     position: 'elp', type: 'needed',        label: 'Software Engineering coursework', test: { kind: 'yes', fact: 'seCourse' } },
+    { id: 'elp-agile-course',  position: 'elp', type: 'desired',       label: 'Agile course', name: 'Agile course', test: { kind: 'yes', fact: 'agileCourse' } },
+    { id: 'elp-degree',        position: 'elp', type: 'qualification', label: 'Bachelor in Computer Science', test: { kind: 'degree', minLevel: 'bachelors', field: 'cs' } },
+
+    // Python Engineer
+    { id: 'pe-python-3',       position: 'pe',  type: 'needed',        label: '3+ years of Python development', test: { kind: 'min', fact: 'pythonYears', min: 3 } },
+    { id: 'pe-data-1',         position: 'pe',  type: 'needed',        label: '1+ year of data development',    test: { kind: 'min', fact: 'dataDevYears', min: 1 } },
+    { id: 'pe-agile-1',        position: 'pe',  type: 'needed',        label: 'Experience in Agile projects (1+ year)', test: { kind: 'min', fact: 'agileYears', min: 1 } },
+    { id: 'pe-git',            position: 'pe',  type: 'desired',       label: 'Has used Git', name: 'Git',      test: { kind: 'yes', fact: 'usedGit' } },
+    { id: 'pe-degree',         position: 'pe',  type: 'qualification', label: 'Bachelor in Computer Science',   test: { kind: 'degree', minLevel: 'bachelors', field: 'cs' } },
+
+    // Project Manager
+    { id: 'pm-manage-3',       position: 'pm',  type: 'needed',        label: '3+ years managing software projects', test: { kind: 'min', fact: 'pmYears', min: 3 } },
+    { id: 'pm-agile-2',        position: 'pm',  type: 'needed',        label: '2+ years in Agile projects',     test: { kind: 'min', fact: 'agileYears', min: 2 } },
+    { id: 'pm-pmi',            position: 'pm',  type: 'qualification', label: 'PMI Lean Project Management Certification', test: { kind: 'yes', fact: 'pmiCert' } },
+
+    // Senior Knowledge Engineer
+    { id: 'ske-python-4',      position: 'ske', type: 'needed',        label: '4+ years of Python development', test: { kind: 'min', fact: 'pythonYears', min: 4 } },
+    { id: 'ske-es-2',          position: 'ske', type: 'needed',        label: '2+ years developing expert systems', test: { kind: 'min', fact: 'expertSystemsYears', min: 2 } },
+    { id: 'ske-arch-2',        position: 'ske', type: 'needed',        label: '2+ years of data architecture',  test: { kind: 'min', fact: 'dataArchYears', min: 2 } },
+    { id: 'ske-data-2',        position: 'ske', type: 'needed',        label: '2+ years of data development',   test: { kind: 'min', fact: 'dataDevYears', min: 2 } },
+    { id: 'ske-degree',        position: 'ske', type: 'qualification', label: 'Masters in Computer Science',    test: { kind: 'degree', minLevel: 'masters', field: 'cs' } },
+  ];
+
+  function plural(n, word) { return n + ' ' + word + (n === 1 ? '' : 's'); }
+
+  // Evaluate one condition against the facts. Returns { pass, detail } where
+  // detail is a human-readable explanation of why it passed or failed.
+  function checkCondition(test, facts) {
+    switch (test.kind) {
+      case 'yes': {
+        const pass = facts[test.fact] === true;
+        return { pass, detail: pass ? 'you answered Yes' : 'you answered No' };
+      }
+      case 'min': {
+        const have = facts[test.fact];
+        const pass = have >= test.min;
+        return {
+          pass,
+          detail: pass
+            ? 'you have ' + plural(have, 'year')
+            : 'you have ' + plural(have, 'year') + ' (' + (test.min - have) + ' short)',
+        };
+      }
+      case 'degree': {
+        const level = facts.degreeLevel;
+        const levelOk = DEGREE_RANK[level] >= DEGREE_RANK[test.minLevel];
+        const fieldOk = level !== 'none' && facts.degreeField === test.field;
+        const have = level === 'none'
+          ? 'you have no degree'
+          : 'you have ' + DEGREE_NAME[level] + ' in ' + FIELD_NAME[facts.degreeField];
+        const problems = [];
+        if (level !== 'none' && !levelOk) problems.push('needs ' + DEGREE_NAME[test.minLevel] + ' or higher');
+        if (level !== 'none' && !fieldOk) problems.push('degree must be in ' + FIELD_NAME[test.field]);
+        return { pass: levelOk && fieldOk, detail: have + (problems.length ? ' (' + problems.join('; ') + ')' : '') };
+      }
+      default:
+        throw new Error('Unknown condition kind: ' + test.kind);
+    }
+  }
+
+  // Forward-chaining over the rule base: fire every rule for every position,
+  // then conclude "qualified" iff no needed/qualification rule failed.
+  function evaluate(facts) {
+    return POSITIONS.map(function (position) {
+      const checks = RULES
+        .filter(function (r) { return r.position === position.id; })
+        .map(function (rule) {
+          const result = checkCondition(rule.test, facts);
+          return { rule, pass: result.pass, explanation: rule.label + ': ' + result.detail };
+        });
+      const failed = checks.filter(function (c) { return !c.pass && c.rule.type !== 'desired'; });
+      const missingDesired = checks.filter(function (c) { return !c.pass && c.rule.type === 'desired'; });
+      return { position, qualified: failed.length === 0, checks, failed, missingDesired };
+    });
+  }
+
+  // ---------- Input validation (pure; returns { ok, value } or { ok:false, error }) ----------
+
+  function normalize(raw) { return String(raw == null ? '' : raw).trim().replace(/\s+/g, ' ').toLowerCase(); }
+
+  const DEGREE_LEVELS = { none: 'none', bachelors: 'bachelors', masters: 'masters', phd: 'phd' };
+  const DEGREE_LEVEL_HINTS = {
+    bs: 'Bachelors', ba: 'Bachelors', bsc: 'Bachelors', 'b.s.': 'Bachelors', 'b.s': 'Bachelors', 'b.a.': 'Bachelors',
+    bachelor: 'Bachelors', "bachelor's": 'Bachelors', "bachelors'": 'Bachelors', undergrad: 'Bachelors', undergraduate: 'Bachelors',
+    ms: 'Masters', msc: 'Masters', ma: 'Masters', 'm.s.': 'Masters', 'm.s': 'Masters', 'm.a.': 'Masters',
+    master: 'Masters', "master's": 'Masters', "masters'": 'Masters', graduate: 'Masters',
+    'ph.d.': 'PhD', 'ph.d': 'PhD', 'ph d': 'PhD', doctorate: 'PhD', doctoral: 'PhD', doctor: 'PhD',
+    no: 'None', 'n/a': 'None', na: 'None', nothing: 'None', 'no degree': 'None', 'high school': 'None',
+  };
+  const LEVEL_CHOICES = 'None, Bachelors, Masters, or PhD';
+
+  function validateDegreeLevel(raw) {
+    const key = normalize(raw);
+    if (!key) return { ok: false, error: 'Enter your highest degree: ' + LEVEL_CHOICES + '.' };
+    if (DEGREE_LEVELS[key]) return { ok: true, value: DEGREE_LEVELS[key] };
+    const hint = DEGREE_LEVEL_HINTS[key];
+    const shown = String(raw).trim();
+    return {
+      ok: false,
+      error: hint
+        ? '"' + shown + '" isn\'t accepted. Enter it as "' + hint + '" (one of ' + LEVEL_CHOICES + ').'
+        : '"' + shown + '" isn\'t a recognized degree level. Enter exactly one of: ' + LEVEL_CHOICES + '.',
+    };
+  }
+
+  const DEGREE_FIELDS = { 'computer science': 'cs', other: 'other' };
+  const DEGREE_FIELD_HINTS = {
+    cs: 'Computer Science', 'c.s.': 'Computer Science', 'comp sci': 'Computer Science', compsci: 'Computer Science',
+    'comp. sci.': 'Computer Science', 'computer-science': 'Computer Science', computerscience: 'Computer Science',
+    'computer sciences': 'Computer Science', computing: 'Computer Science',
+  };
+
+  function validateDegreeField(raw) {
+    const key = normalize(raw);
+    if (!key) return { ok: false, error: 'Enter your degree field: Computer Science or Other.' };
+    if (DEGREE_FIELDS[key]) return { ok: true, value: DEGREE_FIELDS[key] };
+    const hint = DEGREE_FIELD_HINTS[key];
+    const shown = String(raw).trim();
+    return {
+      ok: false,
+      error: hint
+        ? '"' + shown + '" isn\'t accepted. Spell it out as "' + hint + '", or enter "Other".'
+        : '"' + shown + '" isn\'t accepted. Enter exactly "Computer Science" or "Other".',
+    };
+  }
+
+  const MAX_YEARS = 60;
+
+  function validateYears(raw) {
+    const s = String(raw == null ? '' : raw).trim();
+    if (!s) return { ok: false, error: 'Enter a number of years from 0 to ' + MAX_YEARS + ' (0 if none).' };
+    if (/^-/.test(s)) return { ok: false, error: 'Years can\'t be negative. Enter a whole number from 0 to ' + MAX_YEARS + '.' };
+    if (/^\d*[.,]\d+$/.test(s)) return { ok: false, error: 'Use whole years only (no decimals), from 0 to ' + MAX_YEARS + '.' };
+    if (!/^\d+$/.test(s)) return { ok: false, error: 'Enter digits only: a whole number from 0 to ' + MAX_YEARS + '.' };
+    const n = Number(s);
+    if (n > MAX_YEARS) return { ok: false, error: 'That\'s more than ' + MAX_YEARS + '. Enter a whole number from 0 to ' + MAX_YEARS + '.' };
+    return { ok: true, value: n };
+  }
+
+  function validateYesNo(raw) {
+    if (raw === 'yes' || raw === true) return { ok: true, value: true };
+    if (raw === 'no' || raw === false) return { ok: true, value: false };
+    return { ok: false, error: 'Choose Yes or No.' };
+  }
+
+  global.ExpertEngine = {
+    POSITIONS, RULES, DEGREE_NAME, FIELD_NAME, MAX_YEARS,
+    evaluate, checkCondition,
+    validateDegreeLevel, validateDegreeField, validateYears, validateYesNo,
+  };
+})(window);
+</script>
+
+<!-- ===================================================================
+     USER INTERFACE
+     =================================================================== -->
+<script>
+(function () {
+  'use strict';
+  const E = window.ExpertEngine;
+  const form = document.getElementById('form');
+  const statusEl = document.getElementById('form-status');
+  const resultsEl = document.getElementById('results');
+
+  const TEXT_FIELDS = {
+    degreeLevel: E.validateDegreeLevel,
+    degreeField: E.validateDegreeField,
+    pythonYears: E.validateYears,
+    dataDevYears: E.validateYears,
+    dataArchYears: E.validateYears,
+    expertSystemsYears: E.validateYears,
+    agileYears: E.validateYears,
+    pmYears: E.validateYears,
+  };
+  const RADIO_FIELDS = ['pythonCourse', 'seCourse', 'agileCourse', 'usedGit', 'pmiCert'];
+  const ORDER = ['degreeLevel', 'degreeField', 'pythonCourse', 'seCourse', 'agileCourse',
+    'pythonYears', 'dataDevYears', 'dataArchYears', 'expertSystemsYears', 'agileYears', 'pmYears',
+    'usedGit', 'pmiCert'];
+
+  const touched = new Set();
+  let submitted = false;
+
+  function wrapper(name) { return form.querySelector('[data-field="' + name + '"]'); }
+
+  function showError(name, message) {
+    const w = wrapper(name);
+    document.getElementById(name + '-error').textContent = message || '';
+    w.classList.toggle('invalid', !!message);
+    const target = RADIO_FIELDS.includes(name) ? w : document.getElementById(name);
+    if (message) target.setAttribute('aria-invalid', 'true');
+    else target.removeAttribute('aria-invalid');
+  }
+
+  // With no degree, the field question doesn't apply.
+  function syncDegreeField() {
+    const level = E.validateDegreeLevel(form.degreeLevel.value);
+    const noDegree = level.ok && level.value === 'none';
+    form.degreeField.disabled = noDegree;
+    form.degreeField.placeholder = noDegree ? 'Not applicable (no degree)' : '';
+    if (noDegree) showError('degreeField', '');
+    return noDegree;
+  }
+
+  // Validates one field, updates its inline error, and returns the parsed result.
+  function validateField(name) {
+    let result;
+    if (name === 'degreeField' && syncDegreeField()) {
+      result = { ok: true, value: null };
+    } else if (RADIO_FIELDS.includes(name)) {
+      const checked = form.querySelector('input[name="' + name + '"]:checked');
+      result = E.validateYesNo(checked ? checked.value : null);
+    } else {
+      result = TEXT_FIELDS[name](form[name].value);
+    }
+    showError(name, result.ok ? '' : result.error);
+    return result;
+  }
+
+  function validateAll() {
+    const facts = {};
+    const invalid = [];
+    ORDER.forEach(function (name) {
+      const r = validateField(name);
+      if (r.ok) facts[name] = r.value; else invalid.push(name);
+    });
+    return { facts, invalid };
+  }
+
+  function el(tag, className, text) {
+    const node = document.createElement(tag);
+    if (className) node.className = className;
+    if (text != null) node.textContent = text;
+    return node;
+  }
+
+  const TYPE_LABEL = { needed: 'needed', qualification: 'qualification', desired: 'desired' };
+
+  function traceDetails(result) {
+    const details = el('details');
+    details.appendChild(el('summary', null, 'How this was decided (' + result.checks.length + ' rules checked)'));
+    const ul = el('ul', 'trace');
+    result.checks.forEach(function (c) {
+      const li = el('li');
+      const soft = c.rule.type === 'desired';
+      li.appendChild(el('span', c.pass ? 'pass' : (soft ? 'soft' : 'fail'), c.pass ? '✓' : (soft ? '–' : '✗')));
+      const text = el('span', null, c.explanation);
+      text.appendChild(el('span', 'tag', TYPE_LABEL[c.rule.type]));
+      li.appendChild(text);
+      ul.appendChild(li);
+    });
+    details.appendChild(ul);
+    return details;
+  }
+
+  function desiredNote(result, prefix) {
+    const names = result.missingDesired.map(function (c) { return c.rule.name; });
+    return el('div', 'note', prefix + ', missing desired skill' + (names.length > 1 ? 's' : '') + ': ' + names.join(', '));
+  }
+
+  function renderResults(facts) {
+    const results = E.evaluate(facts);
+    const qList = document.getElementById('qualified-list');
+    const uList = document.getElementById('unqualified-list');
+    qList.replaceChildren();
+    uList.replaceChildren();
+
+    results.forEach(function (r) {
+      const card = el('article', 'result ' + (r.qualified ? 'ok' : 'bad'));
+      const h3 = el('h3', null, r.position.title);
+      h3.appendChild(el('span', 'status', r.qualified
+        ? 'Qualified'
+        : r.failed.length + ' condition' + (r.failed.length === 1 ? '' : 's') + ' not met'));
+      card.appendChild(h3);
+
+      if (r.qualified) {
+        if (r.missingDesired.length) card.appendChild(desiredNote(r, 'Meets requirements'));
+        else card.appendChild(el('p', null, 'Meets every required condition and desired skill.'));
+      } else {
+        const ul = el('ul', 'fails');
+        r.failed.forEach(function (c) { ul.appendChild(el('li', null, c.explanation)); });
+        card.appendChild(ul);
+        if (r.missingDesired.length) card.appendChild(desiredNote(r, 'Also'));
+      }
+      card.appendChild(traceDetails(r));
+      (r.qualified ? qList : uList).appendChild(card);
+    });
+
+    const count = results.filter(function (r) { return r.qualified; }).length;
+    if (!qList.children.length) qList.appendChild(el('p', 'none', 'None. See what is missing below.'));
+    if (!uList.children.length) uList.appendChild(el('p', 'none', 'None. You qualify for every position.'));
+    document.getElementById('results-title').textContent =
+      'You qualify for ' + count + ' of ' + results.length + ' positions.';
+    resultsEl.hidden = false;
+  }
+
+  function refresh() {
+    const { facts, invalid } = validateAll();
+    if (invalid.length) {
+      resultsEl.hidden = true;
+      statusEl.textContent = 'Fix ' + invalid.length + ' field' + (invalid.length === 1 ? '' : 's') + ' above to see results.';
+      return { ok: false, invalid };
+    }
+    statusEl.textContent = '';
+    renderResults(facts);
+    return { ok: true };
+  }
+
+  form.addEventListener('submit', function (e) {
+    e.preventDefault();
+    submitted = true;
+    const outcome = refresh();
+    if (!outcome.ok) {
+      const first = outcome.invalid[0];
+      const focusTarget = RADIO_FIELDS.includes(first)
+        ? form.querySelector('input[name="' + first + '"]')
+        : document.getElementById(first);
+      focusTarget.focus();
+      wrapper(first).scrollIntoView({ behavior: 'smooth', block: 'center' });
+    } else {
+      resultsEl.focus({ preventScroll: true });
+      resultsEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  });
+
+  // Inline validation: text fields validate on blur, then live once touched.
+  // After the first submit, every change re-evaluates the whole form.
+  form.addEventListener('focusout', function (e) {
+    const name = e.target.name;
+    if (TEXT_FIELDS[name] && !submitted) {
+      if (e.target.value.trim() !== '' || touched.has(name)) {
+        touched.add(name);
+        validateField(name);
+      }
+    }
+  });
+
+  form.addEventListener('input', function (e) {
+    const name = e.target.name;
+    if (name === 'degreeLevel') syncDegreeField();
+    if (submitted) { refresh(); return; }
+    if (RADIO_FIELDS.includes(name) || touched.has(name)) validateField(name);
+    if (name === 'degreeLevel' && touched.has('degreeField')) validateField('degreeField');
+  });
+
+  form.addEventListener('reset', function () {
+    submitted = false;
+    touched.clear();
+    setTimeout(function () {
+      ORDER.forEach(function (name) { showError(name, ''); });
+      syncDegreeField();
+      statusEl.textContent = '';
+      resultsEl.hidden = true;
+      form.degreeLevel.focus();
+    });
+  });
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,348 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<link rel="icon" href="data:,">
+<title>Expert System Tests</title>
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #f6f6f3; --surface: #ffffff; --text: #1b1c1e; --muted: #5d6167; --border: #d9d9d3;
+    --ok: #1c6e45; --ok-bg: #e7f4ec; --bad: #b0271d; --bad-bg: #fcebe9; --accent: #2c56c9;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #111214; --surface: #1b1c20; --text: #ebebec; --muted: #a2a6ad; --border: #34363c;
+      --ok: #74d39d; --ok-bg: #15271d; --bad: #ff8f86; --bad-bg: #2d1716; --accent: #86a8ff;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  main { max-width: 900px; margin: 0 auto; padding: 32px 16px 64px; }
+  h1 { font-size: 1.5rem; margin: 0 0 4px; }
+  h2 { font-size: 1.1rem; margin: 32px 0 12px; }
+  a { color: var(--accent); }
+  .muted { color: var(--muted); }
+  .banner { border-radius: 10px; padding: 14px 18px; font-weight: 600; font-size: 1.1rem; margin: 20px 0; }
+  .banner.ok { background: var(--ok-bg); color: var(--ok); }
+  .banner.bad { background: var(--bad-bg); color: var(--bad); }
+  .test { background: var(--surface); border: 1px solid var(--border); border-left: 5px solid var(--border); border-radius: 10px; padding: 12px 16px; margin-bottom: 10px; }
+  .test.ok { border-left-color: var(--ok); }
+  .test.bad { border-left-color: var(--bad); }
+  .test-head { display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; }
+  .badge { font-size: .75rem; font-weight: 700; padding: 2px 8px; border-radius: 999px; }
+  .ok .badge { background: var(--ok-bg); color: var(--ok); }
+  .bad .badge { background: var(--bad-bg); color: var(--bad); }
+  .test-head strong { flex: 1 1 240px; }
+  .desc { margin: 4px 0 0; color: var(--muted); font-size: .9rem; }
+  .outcome { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+  .chip { font-size: .8rem; border: 1px solid var(--border); border-radius: 6px; padding: 1px 8px; }
+  .problems { color: var(--bad); margin: 8px 0 0; padding-left: 20px; font-size: .9rem; }
+  details { margin-top: 8px; font-size: .85rem; }
+  summary { cursor: pointer; color: var(--muted); }
+  pre { white-space: pre-wrap; overflow-wrap: anywhere; margin: 6px 0 0; font-size: .8rem; }
+  table { width: 100%; border-collapse: collapse; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+  th, td { text-align: left; padding: 8px 10px; border-top: 1px solid var(--border); vertical-align: top; font-size: .9rem; }
+  th { border-top: 0; color: var(--muted); font-weight: 600; }
+  td code { overflow-wrap: anywhere; }
+  td.res-ok { color: var(--ok); font-weight: 700; }
+  td.res-bad { color: var(--bad); font-weight: 700; }
+  .table-wrap { overflow-x: auto; }
+  iframe { display: none; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Expert System Test Suite</h1>
+  <p class="muted">Runs test profiles through the <strong>same</strong> rules engine used by <a href="index.html">index.html</a> (loaded from that page, not copied).</p>
+  <div id="banner" class="banner">Running…</div>
+
+  <h2>Applicant profiles</h2>
+  <div id="profiles"></div>
+
+  <h2>Input validation</h2>
+  <div class="table-wrap"><table id="validation">
+    <thead><tr><th>Validator</th><th>Input</th><th>Expected</th><th>Actual</th><th>Result</th></tr></thead>
+    <tbody></tbody>
+  </table></div>
+</main>
+
+<iframe id="app" src="index.html" title="Application under test"></iframe>
+
+<script>
+'use strict';
+
+// A profile with nothing: every other profile starts from here and overrides facts.
+const BLANK = {
+  degreeLevel: 'none', degreeField: null,
+  pythonCourse: false, seCourse: false, agileCourse: false,
+  pythonYears: 0, dataDevYears: 0, dataArchYears: 0, expertSystemsYears: 0, agileYears: 0, pmYears: 0,
+  usedGit: false, pmiCert: false,
+};
+const profile = (overrides) => Object.assign({}, BLANK, overrides);
+
+// Exactly at every threshold for every position.
+const AT_EVERY_THRESHOLD = profile({
+  degreeLevel: 'masters', degreeField: 'cs',
+  pythonCourse: true, seCourse: true, agileCourse: true,
+  pythonYears: 4, dataDevYears: 2, dataArchYears: 2, expertSystemsYears: 2, agileYears: 2, pmYears: 3,
+  usedGit: true, pmiCert: true,
+});
+
+// `expect[position]` is `true` (qualified) or the exact list of failed rule ids.
+// `desired[position]`, when given, is the exact list of missing desired rule ids.
+const ALL_PM_FAILS = ['pm-manage-3', 'pm-agile-2', 'pm-pmi'];
+const ALL_SKE_FAILS = ['ske-python-4', 'ske-es-2', 'ske-arch-2', 'ske-data-2', 'ske-degree'];
+
+const PROFILE_TESTS = [
+  {
+    name: 'Qualifies for everything (exactly at every threshold)',
+    desc: 'Masters in CS, every course, 4 yrs Python, 2 yrs data dev/arch/expert systems/Agile, 3 yrs PM, Git, PMI.',
+    facts: AT_EVERY_THRESHOLD,
+    expect: { elp: true, pe: true, pm: true, ske: true },
+    desired: { elp: [], pe: [] },
+  },
+  {
+    name: 'Qualifies for everything (PhD, well above thresholds)',
+    desc: 'PhD in CS with 10+ years in everything.',
+    facts: profile({
+      degreeLevel: 'phd', degreeField: 'cs', pythonCourse: true, seCourse: true, agileCourse: true,
+      pythonYears: 15, dataDevYears: 12, dataArchYears: 10, expertSystemsYears: 10, agileYears: 12, pmYears: 10,
+      usedGit: true, pmiCert: true,
+    }),
+    expect: { elp: true, pe: true, pm: true, ske: true },
+    desired: { elp: [], pe: [] },
+  },
+  {
+    name: 'Blank slate lists every failed condition',
+    desc: 'No degree, no courses, zero years everywhere, no Git, no PMI.',
+    facts: BLANK,
+    expect: {
+      elp: ['elp-python-course', 'elp-se-course', 'elp-degree'],
+      pe: ['pe-python-3', 'pe-data-1', 'pe-agile-1', 'pe-degree'],
+      pm: ALL_PM_FAILS,
+      ske: ALL_SKE_FAILS,
+    },
+    desired: { elp: ['elp-agile-course'], pe: ['pe-git'] },
+  },
+  {
+    name: 'Python Engineer: exactly at thresholds',
+    desc: 'Bachelors in CS, 3 yrs Python, 1 yr data dev, 1 yr Agile, used Git.',
+    facts: profile({ degreeLevel: 'bachelors', degreeField: 'cs', pythonYears: 3, dataDevYears: 1, agileYears: 1, usedGit: true }),
+    expect: {
+      elp: ['elp-python-course', 'elp-se-course'],
+      pe: true,
+      pm: ALL_PM_FAILS,
+      ske: ['ske-python-4', 'ske-es-2', 'ske-arch-2', 'ske-data-2', 'ske-degree'],
+    },
+    desired: { pe: [] },
+  },
+  {
+    name: 'Python Engineer: one below each threshold',
+    desc: 'Bachelors in CS, 2 yrs Python, 0 yrs data dev, 0 yrs Agile, used Git.',
+    facts: profile({ degreeLevel: 'bachelors', degreeField: 'cs', pythonYears: 2, dataDevYears: 0, agileYears: 0, usedGit: true }),
+    expect: { pe: ['pe-python-3', 'pe-data-1', 'pe-agile-1'] },
+  },
+  {
+    name: 'Project Manager: exactly at thresholds',
+    desc: 'No degree, 3 yrs managing, 2 yrs Agile, PMI certified. No degree is needed for PM.',
+    facts: profile({ pmYears: 3, agileYears: 2, pmiCert: true }),
+    expect: { pm: true, pe: ['pe-python-3', 'pe-data-1', 'pe-degree'] },
+  },
+  {
+    name: 'Project Manager: one below each threshold',
+    desc: '2 yrs managing, 1 yr Agile, no PMI certification.',
+    facts: profile({ pmYears: 2, agileYears: 1, pmiCert: false }),
+    expect: { pm: ALL_PM_FAILS },
+  },
+  {
+    name: 'Senior Knowledge Engineer: exactly at thresholds',
+    desc: 'Masters in CS, 4 yrs Python, 2 yrs expert systems, 2 yrs data architecture, 2 yrs data dev.',
+    facts: profile({ degreeLevel: 'masters', degreeField: 'cs', pythonYears: 4, expertSystemsYears: 2, dataArchYears: 2, dataDevYears: 2 }),
+    expect: { ske: true, pe: ['pe-agile-1'], elp: ['elp-python-course', 'elp-se-course'], pm: ALL_PM_FAILS },
+    desired: { pe: ['pe-git'] },
+  },
+  {
+    name: 'Senior Knowledge Engineer: one below each threshold',
+    desc: 'Masters in CS, 3 yrs Python, 1 yr expert systems, 1 yr data architecture, 1 yr data dev.',
+    facts: profile({ degreeLevel: 'masters', degreeField: 'cs', pythonYears: 3, expertSystemsYears: 1, dataArchYears: 1, dataDevYears: 1 }),
+    expect: { ske: ['ske-python-4', 'ske-es-2', 'ske-arch-2', 'ske-data-2'] },
+  },
+  {
+    name: 'Masters holder applying for a Bachelor role',
+    desc: 'Masters in CS with Python and Software Engineering courses: Masters satisfies the Bachelor requirement.',
+    facts: profile({ degreeLevel: 'masters', degreeField: 'cs', pythonCourse: true, seCourse: true }),
+    expect: { elp: true },
+    desired: { elp: ['elp-agile-course'] },
+  },
+  {
+    name: 'Bachelors holder applying for a Masters role',
+    desc: 'Meets every Senior Knowledge Engineer experience rule but only has a Bachelors in CS.',
+    facts: profile({ degreeLevel: 'bachelors', degreeField: 'cs', pythonYears: 6, expertSystemsYears: 3, dataArchYears: 3, dataDevYears: 3 }),
+    expect: { ske: ['ske-degree'] },
+  },
+  {
+    name: 'Degree in a non-CS field fails the qualification',
+    desc: 'Masters in Other with Python and Software Engineering courses.',
+    facts: profile({ degreeLevel: 'masters', degreeField: 'other', pythonCourse: true, seCourse: true, agileCourse: true }),
+    expect: { elp: ['elp-degree'] },
+    desired: { elp: [] },
+  },
+  {
+    name: 'PhD in CS satisfies the Masters requirement',
+    desc: 'PhD in CS at Senior Knowledge Engineer thresholds.',
+    facts: profile({ degreeLevel: 'phd', degreeField: 'cs', pythonYears: 4, expertSystemsYears: 2, dataArchYears: 2, dataDevYears: 2 }),
+    expect: { ske: true },
+  },
+  {
+    name: 'Desired skill missing never disqualifies (Git)',
+    desc: 'Qualifies for Python Engineer without Git; Git appears only as a note.',
+    facts: profile({ degreeLevel: 'bachelors', degreeField: 'cs', pythonYears: 5, dataDevYears: 2, agileYears: 3, usedGit: false }),
+    expect: { pe: true },
+    desired: { pe: ['pe-git'] },
+  },
+  {
+    name: 'Desired skills alone do not qualify anyone',
+    desc: 'Has the Agile course and Git but nothing needed.',
+    facts: profile({ agileCourse: true, usedGit: true }),
+    expect: {
+      elp: ['elp-python-course', 'elp-se-course', 'elp-degree'],
+      pe: ['pe-python-3', 'pe-data-1', 'pe-agile-1', 'pe-degree'],
+    },
+    desired: { elp: [], pe: [] },
+  },
+];
+
+// [validator name, input, expected: {ok, value} | {ok:false, mentions?}]
+const VALIDATION_TESTS = [
+  ['validateDegreeLevel', 'Masters', { ok: true, value: 'masters' }],
+  ['validateDegreeLevel', 'bachelors', { ok: true, value: 'bachelors' }],
+  ['validateDegreeLevel', '  PHD ', { ok: true, value: 'phd' }],
+  ['validateDegreeLevel', 'None', { ok: true, value: 'none' }],
+  ['validateDegreeLevel', 'BS', { ok: false, mentions: '"Bachelors"' }],
+  ['validateDegreeLevel', 'MS', { ok: false, mentions: '"Masters"' }],
+  ['validateDegreeLevel', 'Ph.D.', { ok: false, mentions: '"PhD"' }],
+  ['validateDegreeLevel', 'Associates', { ok: false, mentions: 'None, Bachelors, Masters, or PhD' }],
+  ['validateDegreeLevel', '', { ok: false }],
+  ['validateDegreeField', 'Computer Science', { ok: true, value: 'cs' }],
+  ['validateDegreeField', 'computer science', { ok: true, value: 'cs' }],
+  ['validateDegreeField', 'Other', { ok: true, value: 'other' }],
+  ['validateDegreeField', 'CS', { ok: false, mentions: '"Computer Science"' }],
+  ['validateDegreeField', 'Comp Sci', { ok: false, mentions: '"Computer Science"' }],
+  ['validateDegreeField', 'Mathematics', { ok: false, mentions: '"Other"' }],
+  ['validateYears', '0', { ok: true, value: 0 }],
+  ['validateYears', '60', { ok: true, value: 60 }],
+  ['validateYears', ' 5 ', { ok: true, value: 5 }],
+  ['validateYears', '61', { ok: false }],
+  ['validateYears', '-1', { ok: false }],
+  ['validateYears', '3.5', { ok: false }],
+  ['validateYears', 'three', { ok: false }],
+  ['validateYears', '1e1', { ok: false }],
+  ['validateYears', '', { ok: false }],
+  ['validateYesNo', 'yes', { ok: true, value: true }],
+  ['validateYesNo', 'no', { ok: true, value: false }],
+  ['validateYesNo', null, { ok: false }],
+];
+
+const sameSet = (a, b) => a.length === b.length && a.every((x) => b.includes(x));
+const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+function runProfileTest(E, t) {
+  const results = E.evaluate(t.facts);
+  const byId = Object.fromEntries(results.map((r) => [r.position.id, r]));
+  const problems = [];
+
+  for (const [pos, want] of Object.entries(t.expect)) {
+    const r = byId[pos];
+    const failedIds = r.failed.map((c) => c.rule.id);
+    if (want === true) {
+      if (!r.qualified) problems.push(`${r.position.title}: expected qualified, but failed [${failedIds.join(', ')}]`);
+    } else if (r.qualified) {
+      problems.push(`${r.position.title}: expected NOT qualified with [${want.join(', ')}], but was qualified`);
+    } else if (!sameSet(failedIds, want)) {
+      problems.push(`${r.position.title}: expected failures [${want.join(', ')}], got [${failedIds.join(', ')}]`);
+    }
+  }
+  for (const [pos, want] of Object.entries(t.desired || {})) {
+    const got = byId[pos].missingDesired.map((c) => c.rule.id);
+    if (!sameSet(got, want)) problems.push(`${byId[pos].position.title}: expected missing desired [${want.join(', ')}], got [${got.join(', ')}]`);
+  }
+  return { results, problems };
+}
+
+function runValidationTest(E, [fn, input, want]) {
+  const got = E[fn](input);
+  let pass = got.ok === want.ok;
+  if (pass && want.ok) pass = got.value === want.value;
+  if (pass && !want.ok) pass = typeof got.error === 'string' && got.error.length > 0 &&
+    (!want.mentions || got.error.includes(want.mentions));
+  return { got, pass };
+}
+
+function run(E) {
+  let passed = 0, total = 0;
+
+  const profilesEl = document.getElementById('profiles');
+  PROFILE_TESTS.forEach((t, i) => {
+    const { results, problems } = runProfileTest(E, t);
+    const ok = problems.length === 0;
+    total++; if (ok) passed++;
+
+    const chips = results.map((r) =>
+      `<span class="chip">${r.qualified ? '✓' : '✗'} ${esc(r.position.title)}${r.qualified ? '' : ` (${r.failed.length})`}</span>`).join('');
+    const trace = results.map((r) =>
+      `${r.position.title}: ${r.qualified ? 'QUALIFIED' : 'NOT QUALIFIED'}\n` +
+      r.checks.map((c) => `  ${c.pass ? '✓' : '✗'} [${c.rule.type}] ${c.explanation}`).join('\n')).join('\n\n');
+
+    const div = document.createElement('div');
+    div.className = 'test ' + (ok ? 'ok' : 'bad');
+    div.innerHTML = `
+      <div class="test-head"><span class="badge">${ok ? 'PASS' : 'FAIL'}</span><strong>${i + 1}. ${esc(t.name)}</strong></div>
+      <p class="desc">${esc(t.desc)}</p>
+      <div class="outcome">${chips}</div>
+      ${ok ? '' : `<ul class="problems">${problems.map((p) => `<li>${esc(p)}</li>`).join('')}</ul>`}
+      <details><summary>Engine reasoning</summary><pre>${esc(trace)}</pre></details>`;
+    profilesEl.appendChild(div);
+  });
+
+  const tbody = document.querySelector('#validation tbody');
+  VALIDATION_TESTS.forEach((t) => {
+    const { got, pass } = runValidationTest(E, t);
+    total++; if (pass) passed++;
+    const [fn, input, want] = t;
+    const expected = want.ok ? `valid → ${JSON.stringify(want.value)}` : `rejected${want.mentions ? ` (mentions ${want.mentions})` : ''}`;
+    const actual = got.ok ? `valid → ${JSON.stringify(got.value)}` : `rejected: “${got.error}”`;
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${esc(fn.replace('validate', ''))}</td><td><code>${esc(JSON.stringify(input))}</code></td>
+      <td>${esc(expected)}</td><td>${esc(actual)}</td><td class="${pass ? 'res-ok' : 'res-bad'}">${pass ? 'PASS' : 'FAIL'}</td>`;
+    tbody.appendChild(tr);
+  });
+
+  const banner = document.getElementById('banner');
+  banner.className = 'banner ' + (passed === total ? 'ok' : 'bad');
+  banner.textContent = `${passed} / ${total} tests passed` +
+    ` (${PROFILE_TESTS.length} applicant profiles, ${VALIDATION_TESTS.length} validation cases)`;
+  window.TEST_SUMMARY = { passed, total };
+}
+
+document.getElementById('app').addEventListener('load', function () {
+  let engine;
+  try { engine = this.contentWindow.ExpertEngine; } catch (err) { /* cross-origin (file://) */ }
+  const banner = document.getElementById('banner');
+  if (!engine) {
+    banner.className = 'banner bad';
+    banner.textContent = 'Could not load the engine from index.html. Browsers block this for file:// pages; ' +
+      'serve the folder instead (e.g. `python3 -m http.server`) or open the GitHub Pages URL.';
+    return;
+  }
+  try { run(engine); } catch (err) {
+    banner.className = 'banner bad';
+    banner.textContent = 'Test runner crashed: ' + err.message;
+    throw err;
+  }
+});
+</script>
+</body>
+</html>
